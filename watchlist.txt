@@ -1,0 +1,5 @@
+# Options scanner watchlist — one ticker per line or comma-separated.
+# Lines starting with # are ignored. Edit freely.
+
+IWM, QQQ, SPY
+AAPL, GOOGL, META, AMD, NVDA, TSLA, AMZN, MSFT
