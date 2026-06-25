@@ -1,0 +1,57 @@
+name: Options Scan
+
+on:
+  # Run automatically on a schedule (UTC). 13:45 UTC ≈ 9:45 AM ET,
+  # ~15 min after the US market opens. GitHub cron is UTC only and
+  # does not adjust for daylight saving — shift by an hour if needed.
+  schedule:
+    - cron: "45 13 * * 1-5"   # Mon–Fri
+  # Also let you trigger it by hand from the Actions tab.
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scanner
+        run: |
+          mkdir -p results
+          DATE="$(date -u +%Y-%m-%d)"
+          OUT="results/scan-$DATE.csv"
+          SUM="results/scan-$DATE.md"
+          # yfinance scrapes Yahoo, whose servers sometimes block GitHub's
+          # shared IPs. Retry a few times before giving up.
+          for attempt in 1 2 3; do
+            echo "Attempt $attempt..."
+            if python options_scanner.py \
+                 --watchlist watchlist.txt \
+                 --side both --max-dte 45 --max-bid 1.00 --top 15 \
+                 --csv "$OUT" --summary "$SUM"; then
+              echo "Scanner finished."
+              break
+            fi
+            echo "Attempt $attempt failed; waiting 30s..."
+            sleep 30
+          done
+          # Ensure a file always exists so later steps don't error.
+          [ -f "$OUT" ] || echo "scan_utc" > "$OUT"
+
+      - name: Upload results as a downloadable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: scan-results
+          path: results/
+          retention-days: 90
+
